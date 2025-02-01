@@ -20,7 +20,9 @@ ENV PATH="/usr/local/go/bin:$PATH"
 RUN go install tailscale.com/cmd/derper@main
 
 # 从 edge 仓库安装最新版本的 Tailscale
-RUN apk add --no-cache tailscale --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community
+#RUN apk add --no-cache tailscale --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community
+RUN apk add --no-cache tailscale --repository=https://mirrors.aliyun.com/alpine/edge/community
+
 
 # 复制初始化脚本并设置执行权限
 COPY init.sh /init.sh
