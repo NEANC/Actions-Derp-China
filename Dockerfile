@@ -6,7 +6,7 @@ WORKDIR /src
 
 # 下载 derper 的源代码
 RUN go mod init builder && \
-    go get tailscale.com/cmd/derper@latest
+    go get tailscale.com/cmd/derper@main
 
 # 使用 CGO_ENABLED=0 来构建一个完全静态链接的二进制文件
 # 这个文件不依赖任何外部库，可以在任何 Linux 内核上运行，包括 Alpine
