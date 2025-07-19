@@ -5,8 +5,10 @@
 这个 Dockerfile 要求 Derp 服务器必须使用域名，因此你必须提前准备好自己的域名。备案可以不用做，后期在 Nginx 上开不常见端口就行了。
 ## HTTPs 证书
 建议通过 `Certbot` 等工具进行自动化SSL证书申请，可以参考 @frank-lam 的[使用 Certbot 为网站签发永久免费的 HTTPS 证书](https://www.frankfeekr.cn/2021/03/28/let-is-encrypt-cerbot-for-https/index.html)。
+
+也可以通过宝塔或者1Panel面板的ssl证书申请比较简单就自行摸索或者查阅相关资料
 ## 构建镜像
-太懒了，没有把镜像打包上传，有需要的话自己构建一下：
+太懒了，没有把镜像打包上传，有需要的话自己构建一下，中国地区可能需要挂代理请自行研究或者手动下载代码上传解压到本地：
 ```
 git clone https://github.com/lansepeach/Derp-China-new.git && cd Derp-China-new && docker build . -t derpinchina:latest
 ```
@@ -50,7 +52,7 @@ docker exec -it tailscale-derp /bin/sh
 ```
 tailscale login --auth-key="你的key"
 ```
-## 安装并配置 Nginx
+## 安装并配置 Nginx 
 这里不一定用 Nginx，换别的 caddy 什么的也行。只要配置个反代转发到 `http://127.0.0.1:444` 就行。公网端口建议开不常见端口，比如我开的 442。
 
 我的 Nginx 配置给你参考：
@@ -127,4 +129,4 @@ server {
 ```
 这里就结束了，最后使用 tailscale 命令行通过 `tailscale ping` 和 `tailscale status` 检查验证一下。
 # 致谢
-我是基于 @tijjjy 的 https://github.com/tijjjy/Tailscale-DERP-Docker 修改的，他在博客 [Self Host Tailscale Derp Server](https://tijjjy.me/2023-01-22/Self-Host-Tailscale-Derp-Server) 给大家详细 walkthrough 了，建议阅读一下，非常容易理解。
+我是基于@S4kur4的https://github.com/S4kur4/Derp-China 和 @tijjjy 的 https://github.com/tijjjy/Tailscale-DERP-Docker 修改的重构了Dockerfile和docker-compose.yml以及init.sh，让构建的镜像更小了，他在博客 [Self Host Tailscale Derp Server](https://tijjjy.me/2023-01-22/Self-Host-Tailscale-Derp-Server) 给大家详细 walkthrough 了，建议阅读一下，非常容易理解。
