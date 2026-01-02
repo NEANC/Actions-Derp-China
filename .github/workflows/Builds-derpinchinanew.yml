@@ -1,4 +1,4 @@
-name: 自动构建:derpin-china-new
+name: 自动构建:Derpin-China-new
 
 on:
   schedule:
@@ -20,25 +20,24 @@ jobs:
       TARGET_REPO: https://github.com/lansepeach/Derp-China-new.git
 
     steps:
-      # 安装必要依赖（git用于克隆仓库）
-      - name: Install dependencies
+      - name: Install Dependencies
         run: |
+          # 安装依赖
           sudo apt update && sudo apt install -y git
           # 验证docker是否已安装
           docker --version
       
-      # 定义镜像名称（确保格式正确）
-      - name: Define image name
+      - name: Define Image Name
         run: |
+          # 定义镜像名称
           # 把github.repository_owner转为纯小写，避免大写导致的镜像名称错误
           REPO_OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           echo "IMAGE_NAME=${REPO_OWNER_LOWER}/lansepeach/derpin-china-new" >> $GITHUB_ENV
           echo "Lowercase image name: ghcr.io/${REPO_OWNER_LOWER}/lansepeach/derpin-china-new"
 
-      # 生成日期标签（格式：年月日）
-      - name: Generate date-based tag
+      - name: Generate Date-Based Tag
         run: |
-          # 使用UTC时间
+          # 使用UTC时间，生成日期标签（格式：年月日）
           TAG_DATE="$(date -u +%Y%m%d)"
           echo "Date tag: $TAG_DATE"
           echo "TAG_DATE=$TAG_DATE" >> $GITHUB_ENV
@@ -51,35 +50,33 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 步骤5：克隆目标仓库
       - name: Clone Derp-China-new repository
         run: |
+          # 克隆目标仓库
           git clone ${{ env.TARGET_REPO }}
           cd Derp-China-new
 
-      # 构建Docker镜像
-      - name: Build Docker image
+      - name: Build Docker Image
         run: |
+          # 构建Docker镜像
           cd Derp-China-new
           docker build . \
             -t derpinchina:latest
 
-      # 为镜像打标签（日期标签 + latest标签）
-      - name: Tag image for GHCR
+      - name: Tag Image
         run: |
-          # 打日期标签
+          # 为镜像设置标签
+          # 日期
           docker tag derpinchina:latest ghcr.io/${{ env.IMAGE_NAME }}:${{ env.TAG_DATE }}
-          # 打latest标签
+          # latest
           docker tag derpinchina:latest ghcr.io/${{ env.IMAGE_NAME }}:latest
-          # 输出所有标签
+          # 输出镜像信息
           docker images | grep ${{ env.IMAGE_NAME }}
 
-      # 推送镜像到GHCR
-      - name: Push image to GHCR
+      - name: Push Image
         run: |
-          # 推送日期标签
+          # 推送镜像
           docker push ghcr.io/${{ env.IMAGE_NAME }}:${{ env.TAG_DATE }}
-          # 推送latest标签
           docker push ghcr.io/${{ env.IMAGE_NAME }}:latest
 
       # 登出GHCR
@@ -87,10 +84,10 @@ jobs:
         if: always()  # 无论前面步骤是否失败，都执行登出
         run: docker logout ghcr.io
 
-      # 构建结果摘要
       - name: Build summary
         if: always()  # 无论前面步骤是否失败，都输出摘要
         run: |
+          # 构建结果摘要
           echo "========================================"
           echo "📦 Docker Image Build Summary"
           echo "========================================"
