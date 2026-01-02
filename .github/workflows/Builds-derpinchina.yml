@@ -1,0 +1,155 @@
+name: 自动构建:derpin-china
+
+on:
+  # schedule:
+    # 每周一 00:00 UTC 执行
+    # - cron: '0 0 * * *'
+  # 当主线代码更新时自动执行构建
+  push:
+    branches: [ main, master ]
+  # 当PR合并到主线时自动执行构建
+  pull_request:
+    types: [ closed ]
+    branches: [ main, master ]
+  # 手动触发
+  workflow_dispatch:
+
+# 权限配置：仅授予GHCR推送必需的最小权限
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-24.04
+
+    steps:
+      # 步骤1：安装必要依赖
+      - name: Install dependencies
+        run: |
+          sudo apt update && sudo apt install -y curl jq
+          # 验证docker是否已安装（ubuntu-24.04 runner默认带docker）
+          docker --version
+      
+      # 将仓库所有者转为小写，并定义IMAGE_NAME
+      - name: Define lowercase IMAGE_NAME
+        run: |
+          # 把github.repository_owner转为纯小写，避免大写导致的镜像名称错误
+          REPO_OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "IMAGE_NAME=${REPO_OWNER_LOWER}/derpin-china" >> $GITHUB_ENV
+          echo "Lowercase image name: ghcr.io/${REPO_OWNER_LOWER}/derpin-china"
+
+      # 步骤2：获取Tailscale最新版本（当前已临时屏蔽，Dockerfile中直接安装最新版本）
+      # - name: Get latest Tailscale version
+      #   id: get_tailscale
+      #   run: |
+      #     # 调用GitHub API，添加token避免速率限制
+      #     TAILSCALE_VERSION=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+      #       https://api.github.com/repos/tailscale/tailscale/releases/latest | jq -r '.tag_name')
+      #     
+      #     # 非空校验：获取失败则终止流程
+      #     if [ -z "$TAILSCALE_VERSION" ] || [ "$TAILSCALE_VERSION" = "null" ]; then
+      #       echo "Error: Failed to get latest Tailscale version"
+      #       exit 1
+      #     fi
+      #     # 统一版本格式（确保带v前缀，方便后续对比）
+      #     if [[ ! $TAILSCALE_VERSION =~ ^v ]]; then
+      #       TAILSCALE_VERSION="v$TAILSCALE_VERSION"
+      #     fi
+      #     
+      #     echo "Latest Tailscale version: $TAILSCALE_VERSION"
+      #     echo "TAILSCALE_VERSION=$TAILSCALE_VERSION" >> $GITHUB_ENV
+      #     # 同时输出无v前缀的版本（兼容部分镜像内的版本格式）
+      #     echo "TAILSCALE_VERSION_NO_V=${TAILSCALE_VERSION#v}" >> $GITHUB_ENV
+
+      # 步骤3：生成当日时间标签（格式：年月日，如20260102）
+      #- name: Generate date-based tag
+          # 使用UTC时间生成标签
+      #    TAG_DATE="$(date -u +%Y%m%d)"
+      #    echo "Date tag: $TAG_DATE"
+      #    echo "TAG_DATE=$TAG_DATE" >> $GITHUB_ENV
+
+      # 步骤3：生成包含日期和commit/PR信息的标签
+      - name: Generate tag with date and commit/PR info
+        run: |
+          # 基础日期标签（格式：年月日，如20260102）
+          BASE_TAG=$(date -u +%Y%m%d)
+          
+          # 检查事件类型并生成相应的标签后缀
+          if [ "${{ github.event_name }}" = "push" ]; then
+            # 对于push事件，使用commit哈希的前7位
+            COMMIT_HASH=${{ github.sha }}
+            SHORT_HASH=${COMMIT_HASH:0:7}
+            TAG_SUFFIX="-$SHORT_HASH"
+          elif [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ github.event.action }}" = "closed" ] && [ "${{ github.event.pull_request.merged }}" = "true" ]; then
+            # 对于合并的PR事件，使用PR编号
+            PR_NUMBER=${{ github.event.pull_request.number }}
+            TAG_SUFFIX="-pr$PR_NUMBER"
+          else
+            # 其他情况（如手动触发），使用时间戳避免重复
+            TIMESTAMP=$(date -u +%H%M%S)
+            TAG_SUFFIX="-$TIMESTAMP"
+          fi
+          
+          # 组合最终标签
+          FINAL_TAG="$BASE_TAG$TAG_SUFFIX"
+          echo "Generated tag: $FINAL_TAG"
+          echo "TAG_DATE=$FINAL_TAG" >> $GITHUB_ENV
+
+      # 步骤4：登录GHCR（仅推送到GHCR，无需DockerHub）
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 步骤5：构建镜像（临时标签derpinchina:latest）
+      - name: Build Docker image
+        run: |
+          docker build . \
+            -t derpinchina:latest \
+            # 临时屏蔽传递最新Tailscale版本，Dockerfile中直接安装最新版本
+            # --build-arg DERP_VERSION=${{ env.TAILSCALE_VERSION }}
+
+      # 暂时注释版本验证步骤（由于已屏蔽获取最新版本的步骤）
+      # - name: Verify Tailscale version in image
+      #   run: |
+      #     echo "=== Starting version verification ==="
+      #     # 1. 启动临时容器（--rm 退出后自动删除，--entrypoint sh 确保能执行命令）
+      #     CONTAINER_ID=$(docker run -d --rm --entrypoint sh derpinchina:latest -c "sleep 30")
+      #     
+      #     # 2. 提取镜像内Tailscale版本（兼容两种格式：带v/不带v）
+      #     IMAGE_TS_VERSION=$(docker exec $CONTAINER_ID sh -c "tailscale --version 2>/dev/null || derper --version" | grep -Eo 'v?[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+      #     
+      #     # 3. 停止临时容器（兜底）
+      #     docker stop $CONTAINER_ID >/dev/null 2>&1
+      #     
+      #     # 4. 版本格式统一（确保带v前缀）
+      #     if [[ ! $IMAGE_TS_VERSION =~ ^v ]]; then
+      #       IMAGE_TS_VERSION="v$IMAGE_TS_VERSION"
+      #     fi
+      #     
+      #     # 5. 打印版本信息
+      #     echo "Actual version in image: $IMAGE_TS_VERSION"
+      #     echo "Note: Version comparison is temporarily disabled"
+      #     echo "SUCCESS: Image built successfully with installed Tailscale version"
+
+      # 步骤7：打GHCR镜像标签（当日时间标签 + latest标签）
+      - name: Tag image for GHCR
+        run: |
+          # 打当日时间标签
+          docker tag derpinchina:latest ghcr.io/${{ env.IMAGE_NAME }}:${{ env.TAG_DATE }}
+          # 打latest标签
+          docker tag derpinchina:latest ghcr.io/${{ env.IMAGE_NAME }}:latest
+
+      # 步骤8：推送镜像到GHCR
+      - name: Push image to GHCR
+        run: |
+          docker push ghcr.io/${{ env.IMAGE_NAME }}:${{ env.TAG_DATE }}
+          docker push ghcr.io/${{ env.IMAGE_NAME }}:latest
+
+      # 步骤9：登出GHCR（安全最佳实践，清理会话）
+      - name: Logout from GHCR
+        if: always()  # 无论前面步骤是否失败，都执行登出
+        run: docker logout ghcr.io
