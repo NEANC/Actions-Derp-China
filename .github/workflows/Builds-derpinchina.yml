@@ -2,8 +2,9 @@ name: 自动构建:derpin-china
 
 on:
   schedule:
-    # 每周一 00:00 UTC 执行
-    - cron: '0 0 * * *'
+    # 每周一 00:00 北京时间 执行
+    - cron: '0 0 * * 1'
+      timezone: Asia/Shanghai
   # 当PR合并到主线时自动执行构建
   pull_request:
     types: [ closed ]

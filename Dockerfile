@@ -5,7 +5,7 @@ WORKDIR /src
 
 # 下载 derper 的源代码
 RUN go mod init builder && \
-    go get tailscale.com/cmd/derper@main
+    go get tailscale.com/cmd/derper@latest
 
 # 使用 CGO_ENABLED=0 来构建一个完全静态链接的二进制文件
 # 这个文件不依赖任何外部库，可以在任何 Linux 内核上运行，包括 Alpine
@@ -14,6 +14,7 @@ RUN CGO_ENABLED=0 go build -o /derper tailscale.com/cmd/derper
 
 # ---- STAGE 2: The Final Image ----
 FROM debian:bookworm-slim
+# 替换为 slim 镜像，用于追踪最新的 Tailscale 版本
 
 # 安装运行时依赖
 # ca-certificates 对于 derper 进行 TLS 通信至关重要

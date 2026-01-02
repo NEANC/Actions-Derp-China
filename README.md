@@ -1,14 +1,30 @@
 # Actions Derp China
 
 > [!NOTE]
-> GitHub Actions 工作流定时在 UTC 时间每周一 00:00 自动构建镜像并推送到 GitHub Packages 中
+> GitHub Actions 工作流定时在北京时间每周一 00:00 自动构建镜像并推送到 GitHub Packages 中
 
-GitHub Actions 工作流 用于自动构建 [Derp-China-new](https://github.com/lansepeach/Derp-China-new) 的镜像，免去在本地执行构建。
+本项目使用 GitHub Actions 工作流自动构建 本库与 [lansepeach/Derp-China-new](https://github.com/lansepeach/Derp-China-new) 的镜像，免去在本地执行构建。
 
-> [!IMPORTANT]
-> 本教程不使用本 Docker 镜像内的 Tailscale；  
-> 镜像内的 Tailscale 无法以非重建容器的方式更新，且也不是最新版本，  
-> 若无法更新可能会在后续的维护中会出问题
+---
+
+## 前言
+
+实验性项目，用来玩 Actions 的，虽然最后是玩 AI（笑  
+暂时不建议用 `neanc/derpin-china`，打包出来的镜像大了一倍，对小水管来说要命。  
+当然你要用我也没法拦你，毕竟这个镜像目测来看不需要折腾一堆太多，填个 KEY，做个反代，拉起容器，最后在后台填下配置完事了。  
+比较适合不在服务器上用 Tailscale，只是打算做纯 derp 且需要用域名的需求。
+
+修改了 `Dockerfile` 所使用的系统，用于追踪最新的 Tailscale ，缺点是镜像大小会增加。  
+将 @main 替换为 @latest ，以获取对应 Tailscale 的 derper 版本。
+
+---
+
+## 版本对比
+
+| 镜像                                               | 基于   | 大小     | 说明                             |
+| -------------------------------------------------- | ------ | -------- | -------------------------------- |
+| `ghcr.io/neanc/lansepeach/derpin-china-new:latest` | Alpine | ≈ 70 MB  | Tailscale 版本较旧               |
+| `ghcr.io/neanc/derpin-china:latest`                | Debian | ≈ 175 MB | 用于实时追踪最新版本的 Tailscale |
 
 ---
 
@@ -58,6 +74,15 @@ tailscale up --auth-key="你的key"
 </details>
 
 ### 部署容器
+
+> [!NOTE] 
+> `docker-compose.yml` 中使用的镜像为 `ghcr.io/neanc/lansepeach/derpin-china-new:latest`，  
+> 若需要使用 `ghcr.io/neanc/derpin-china:latest`，请自行修改。
+
+> [!IMPORTANT]
+> 本教程不使用 `lansepeach/Derp-China-new` 镜像内的 Tailscale；  
+> 此镜像内的 Tailscale 受限于 Alpine，无法实时追踪最新版本，  
+> 若无法更新可能会在后续的维护中会出问题。
 
 ```bash
 # 拉取仓库
@@ -377,7 +402,7 @@ all non-default settings:
 
 则，执行以下重置命令：
 
- ```bash
+```bash
 tailscale up --reset
 ```
 
@@ -385,7 +410,7 @@ tailscale up --reset
 
 ### 阿里云内网
 
-[Tailscale 和 阿里云DNS 水土不服的解法](https://linux.do/t/topic/769727)
+[Tailscale 和 阿里云 DNS 水土不服的解法](https://linux.do/t/topic/769727)
 
 最简单方法，具体请看帖子
 

@@ -1,7 +1,7 @@
 services:
   tailscale-derp:
     container_name: tailscale-derp
-    image: ghcr.io/neanc/derpinchina:latest
+    image: ghcr.io/neanc/lansepeach/derpin-china-new:latest # 或使用 ghcr.io/neanc/derpin-china:latest
     hostname: ${TAILSCALE_DERP_HOSTNAME}  # 设置容器的主机名为环境变量 `TAILSCALE_DERP_HOSTNAME`
     volumes:
       - /lib/modules:/lib/modules:ro                                          # 只读方式挂载主机的 `/lib/modules` 目录
