@@ -178,7 +178,7 @@ jobs:
           echo "======================================="
           
           # 添加GitHub Actions UI作业摘要
-          echo "## Docker镜像构建结果\n" >> $GITHUB_STEP_SUMMARY
+          echo "## Docker镜像构建结果" >> $GITHUB_STEP_SUMMARY
           
           # 构建状态
           if [ "${{ job.status }}" = "success" ]; then
@@ -220,7 +220,6 @@ jobs:
           # 构建详情
           echo "### 📅 构建详情" >> $GITHUB_STEP_SUMMARY
           echo "- **构建ID**: ${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **构建链接**: [查看构建](${github.server_url}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
           echo "- **触发方式**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
           echo "- **分支**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "- **构建时间**: $(date)" >> $GITHUB_STEP_SUMMARY
