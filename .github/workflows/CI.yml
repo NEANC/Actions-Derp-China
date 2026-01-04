@@ -58,6 +58,12 @@ jobs:
       # 如果镜像存在，停止CI运行
       - name: Stop if image exists
         if: env.IMAGE_EXISTS == 'true'
+        run: |
+          echo "❌ 镜像 ghcr.io/${{ env.REPO_OWNER_LOWER }}/${{ env.IMAGE_NAME }}:v${{ env.TAILSCALE_VERSION }} 已存在，终止构建"
+          # 使用非零退出码终止CI
+          exit 1
+
+      - name: Stop if image exists2
         if: env.IMAGE_EXISTS2 == 'true'
         run: |
           echo "❌ 镜像 ghcr.io/${{ env.REPO_OWNER_LOWER }}/${{ env.IMAGE_NAME }}:v${{ env.TAILSCALE_VERSION }} 已存在，终止构建"
