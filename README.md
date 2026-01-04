@@ -83,7 +83,8 @@ tailscale up --auth-key="你的key"
 
 ### 2. 部署容器
 
-> [!NOTE] > `docker-compose.yml` 中使用的镜像为 `ghcr.io/neanc/lansepeach/derpin-china-new:latest`，  
+> [!NOTE]
+> `docker-compose.yml` 中使用的镜像为 `ghcr.io/neanc/lansepeach/derpin-china-new:latest`，  
 > 若需要使用 `ghcr.io/neanc/derpin-china:latest`，请自行修改。
 
 > [!IMPORTANT]
