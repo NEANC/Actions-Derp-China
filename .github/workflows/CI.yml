@@ -39,11 +39,6 @@ jobs:
 
           REPO_OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           echo "REPO_OWNER_LOWER=${REPO_OWNER_LOWER}" >> $GITHUB_ENV
-      
-      - name: Install skopeo (if not present)
-        run: |
-          # 适配 GitHub Actions Ubuntu 环境，安装 skopeo
-          sudo apt update && sudo apt install -y skopeo
 
       - name: Check if the image tag exists
         run: |
