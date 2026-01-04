@@ -40,20 +40,40 @@ jobs:
           REPO_OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           echo "REPO_OWNER_LOWER=${REPO_OWNER_LOWER}" >> $GITHUB_ENV
       
-      - name: Check if the image exists (using skopeo)
+      - name: Check if the image exists
         run: |
-          # 构造完整镜像地址 (ghcr.io/OWNER/IMAGE:TAG)
-          IMAGE_URL="ghcr.io/${{ env.REPO_OWNER_LOWER }}/${{ env.IMAGE_NAME }}:v${{ env.TAILSCALE_VERSION }}"
+          # 使用 GitHub Packages REST API 只获取最新的包版本
+          # 添加per_page=10和sort=updated参数来获取最近的几个版本
+          API_URL="https://api.github.com/users/${{ env.REPO_OWNER_LOWER }}/packages/container/${{ env.IMAGE_NAME }}/versions?per_page=3&sort=updated"
           
-          # 使用 skopeo 检查镜像是否存在（静默模式，仅判断退出码）
-          if skopeo inspect --creds "user:${{ secrets.GITHUB_TOKEN }}" "docker://${IMAGE_URL}" >/dev/null 2>&1; then
-            IMAGE_EXISTS="true"
-          else
+          # 尝试使用用户API获取版本
+          curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.github+json" \
+              "$API_URL" > versions.json
+          
+          # 显示API响应内容（用于调试）
+          echo "API Response:"
+          cat versions.json
+          # head -n 20 versions.json
+          # echo "... (truncated)"
+          
+          # 检查API响应是否有效
+          if grep -q "Not Found" versions.json || grep -q "message" versions.json; then
+            echo "API调用失败，无法获取版本信息"
             IMAGE_EXISTS="false"
+          else
+            # 显示版本列表
+            echo "Available versions:"
+            jq -r '.[] | .name' versions.json 2>/dev/null || echo "无法解析版本列表"
+            
+            # 检查是否存在带有指定标签的版本
+            TAG_TO_CHECK="v${{ env.TAILSCALE_VERSION }}"
+            IMAGE_EXISTS=$(jq -e --arg tag "$TAG_TO_CHECK" \
+                '.[] | .metadata.container.tags[] | select(. == $tag)' versions.json > /dev/null 2>&1 && echo "true" || echo "false")
           fi
           
           echo "Image tag exists: $IMAGE_EXISTS"
-          echo "IMAGE_EXISTS=$IMAGE_EXISTS" >> "$GITHUB_ENV"
+          echo IMAGE_EXISTS=$IMAGE_EXISTS >> $GITHUB_ENV
 
       # 如果镜像存在，停止CI运行
       - name: Stop if image exists
