@@ -36,22 +36,49 @@ jobs:
           TAILSCALE_VERSION=$(curl -s https://api.github.com/repos/tailscale/tailscale/releases/latest | jq -r '.tag_name' | sed 's/^v//')
           echo "Latest tailscale version: $TAILSCALE_VERSION"
           echo TAILSCALE_VERSION=$TAILSCALE_VERSION >> $GITHUB_ENV
+
+          REPO_OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "REPO_OWNER_LOWER=${REPO_OWNER_LOWER}" >> $GITHUB_ENV
       
       - name: Check if the image exists
         run: |
           # 使用 GitHub Packages REST API 获取包的所有版本
+          # 检查是用户包还是组织包
+          API_URL="https://api.github.com/users/${{ env.REPO_OWNER_LOWER }}/packages/container/${{ env.IMAGE_NAME }}/versions"
+          
+          # 尝试使用用户API获取版本
           curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
               -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/users/${{ env.REPO_OWNER_LOWER }}/packages/container/${{ env.IMAGE_NAME }}/versions" > versions.json
+              "$API_URL" > versions.json
           
-          # 显示版本列表
-          echo "Available versions:"
-          jq -r '.[] | .name' versions.json
+          # 检查是否返回了404错误
+          if grep -q "Not Found" versions.json; then
+            echo "尝试使用组织API..."
+            # 如果用户API失败，尝试使用组织API
+            API_URL="https://api.github.com/orgs/${{ env.REPO_OWNER_LOWER }}/packages/container/${{ env.IMAGE_NAME }}/versions"
+            curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+                -H "Accept: application/vnd.github+json" \
+                "$API_URL" > versions.json
+          fi
           
-          # 检查是否存在带有指定标签的版本
-          TAG_TO_CHECK="v${{ env.TAILSCALE_VERSION }}"
-          IMAGE_EXISTS=$(jq -e --arg tag "$TAG_TO_CHECK" \
-              '.[] | .metadata.container.tags[] | select(. == $tag)' versions.json > /dev/null && echo "true" || echo "false")
+          # 显示API响应内容（用于调试）
+          echo "API Response:"
+          cat versions.json
+          
+          # 检查API响应是否有效
+          if grep -q "Not Found" versions.json || grep -q "message" versions.json; then
+            echo "API调用失败，无法获取版本信息"
+            IMAGE_EXISTS="false"
+          else
+            # 显示版本列表
+            echo "Available versions:"
+            jq -r '.[] | .name' versions.json 2>/dev/null || echo "无法解析版本列表"
+            
+            # 检查是否存在带有指定标签的版本
+            TAG_TO_CHECK="v${{ env.TAILSCALE_VERSION }}"
+            IMAGE_EXISTS=$(jq -e --arg tag "$TAG_TO_CHECK" \
+                '.[] | .metadata.container.tags[] | select(. == $tag)' versions.json > /dev/null 2>&1 && echo "true" || echo "false")
+          fi
           
           echo "Image tag exists: $IMAGE_EXISTS"
           echo IMAGE_EXISTS=$IMAGE_EXISTS >> $GITHUB_ENV
