@@ -44,7 +44,6 @@ jobs:
         run: |
           # 使用 GitHub Packages REST API 只获取最新的包版本
           # 添加per_page=10和sort=updated参数来获取最近的几个版本
-          # 检查是用户包还是组织包
           API_URL="https://api.github.com/users/${{ env.REPO_OWNER_LOWER }}/packages/container/${{ env.IMAGE_NAME }}/versions?per_page=3&sort=updated"
           
           # 尝试使用用户API获取版本
@@ -54,8 +53,9 @@ jobs:
           
           # 显示API响应内容（用于调试）
           echo "API Response:"
-          head -n 20 versions.json
-          echo "... (truncated)"
+          cat versions.json
+          # head -n 20 versions.json
+          # echo "... (truncated)"
           
           # 检查API响应是否有效
           if grep -q "Not Found" versions.json || grep -q "message" versions.json; then
