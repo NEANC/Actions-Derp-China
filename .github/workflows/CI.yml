@@ -42,28 +42,20 @@ jobs:
       
       - name: Check if the image exists
         run: |
-          # 使用 GitHub Packages REST API 获取包的所有版本
+          # 使用 GitHub Packages REST API 只获取最新的包版本
+          # 添加per_page=10和sort=updated参数来获取最近的几个版本
           # 检查是用户包还是组织包
-          API_URL="https://api.github.com/users/${{ env.REPO_OWNER_LOWER }}/packages/container/${{ env.IMAGE_NAME }}/versions"
+          API_URL="https://api.github.com/users/${{ env.REPO_OWNER_LOWER }}/packages/container/${{ env.IMAGE_NAME }}/versions?per_page=3&sort=updated"
           
           # 尝试使用用户API获取版本
           curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
               -H "Accept: application/vnd.github+json" \
               "$API_URL" > versions.json
           
-          # 检查是否返回了404错误
-          if grep -q "Not Found" versions.json; then
-            echo "尝试使用组织API..."
-            # 如果用户API失败，尝试使用组织API
-            API_URL="https://api.github.com/orgs/${{ env.REPO_OWNER_LOWER }}/packages/container/${{ env.IMAGE_NAME }}/versions"
-            curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-                -H "Accept: application/vnd.github+json" \
-                "$API_URL" > versions.json
-          fi
-          
           # 显示API响应内容（用于调试）
           echo "API Response:"
-          cat versions.json
+          head -n 20 versions.json
+          echo "... (truncated)"
           
           # 检查API响应是否有效
           if grep -q "Not Found" versions.json || grep -q "message" versions.json; then
