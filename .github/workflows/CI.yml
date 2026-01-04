@@ -23,12 +23,13 @@ jobs:
         run: |
           # 把github.repository_owner转为纯小写，避免大写导致的镜像名称错误
           REPO_OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "REPO_OWNER_LOWER=$REPO_OWNER_LOWER" >> $GITHUB_ENV
 
       - name: Log in to GitHub Registry
         uses: docker/login-action@v1
         with:
           registry: ghcr.io
-          username: ${ REPO_OWNER_LOWER }
+          username: ${{ env.REPO_OWNER_LOWER }}
           password: ${{ secrets.GITHUB_TOKEN }}
           logout: false
 
@@ -65,8 +66,8 @@ jobs:
           platforms: linux/amd64, linux/arm64
           push: true
           tags: |
-            ghcr.io/${REPO_OWNER_LOWER}/derper:${{ env.TAILSCALE_VERSION }}
-            ghcr.io/${REPO_OWNER_LOWER}/derper:latest
+            ghcr.io/${{ env.REPO_OWNER_LOWER }}/derper:${{ env.TAILSCALE_VERSION }}
+            ghcr.io/${{ env.REPO_OWNER_LOWER }}/derper:latest
           build-args: |
             DERP_VERSION=${{ env.TAILSCALE_VERSION }}
       
@@ -89,11 +90,17 @@ jobs:
             BUILD_RESULT="构建被取消"
           fi
 
-          # 确定镜像是否已存在
+          # 确定镜像状态
           if [ "${{ env.IMAGE_EXISTS }}" = "true" ]; then
             IMAGE_STATUS="镜像已存在，未重新构建"
           else
-            IMAGE_STATUS="镜像已成功构建并推送"
+            if [ "${{ job.status }}" = "success" ]; then
+              IMAGE_STATUS="镜像已成功构建并推送"
+            elif [ "${{ job.status }}" = "failure" ]; then
+              IMAGE_STATUS="镜像构建失败"
+            else
+              IMAGE_STATUS="镜像构建被取消"
+            fi
           fi
 
           # 生成构建摘要
@@ -115,7 +122,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "## 🐳 镜像信息" >> $GITHUB_STEP_SUMMARY
-          echo "- **镜像名称**: ghcr.io/${REPO_OWNER_LOWER}/derper" >> $GITHUB_STEP_SUMMARY
+          echo "- **镜像名称**: ghcr.io/${{ env.REPO_OWNER_LOWER }}/derper" >> $GITHUB_STEP_SUMMARY
           echo "- **Tailscale版本**: ${{ env.TAILSCALE_VERSION }}" >> $GITHUB_STEP_SUMMARY
           echo "- **镜像标签**: ${{ env.TAILSCALE_VERSION }}, latest" >> $GITHUB_STEP_SUMMARY
           echo "- **镜像状态**: $IMAGE_STATUS" >> $GITHUB_STEP_SUMMARY
