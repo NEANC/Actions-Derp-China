@@ -11,7 +11,7 @@
 
 实验性项目，用来玩 Actions 的，虽然最后是玩 AI（笑
 
-暂时不建议用 `neanc/derpin-china`，打包出来的镜像大了一倍，对小水管来说要命。  
+暂时不建议用 `derpin-china`，打包出来的镜像大了一倍，对小水管来说要命。  
 当然你要用我也没法拦你，毕竟这个镜像目测来看不需要折腾一堆太多，填个 KEY，做个反代，拉起容器，最后在后台填下配置完事了。
 
 比较适合不在服务器上用 Tailscale，只是打算做 derp 且需要用域名的需求。
@@ -34,7 +34,7 @@
 | 镜像名                        | 基于   | 大小     | 说明                                                                               |
 | ----------------------------- | ------ | -------- | ---------------------------------------------------------------------------------- |
 | `lansepeach/derpin-china-new` | Alpine | ≈ 70 MB  | 基于[lansepeach/Derp-China-new](https://github.com/lansepeach/Derp-China-new) 构建 |
-| `neanc/derpin-china`          | Debian | ≈ 175 MB | 本库构建，用于实时追踪最新版本的 Tailscale                                         |
+| `derpin-china`                | Debian | ≈ 175 MB | 本库构建，用于实时追踪最新版本的 Tailscale                                         |
 
 Ps. `@main` 不是正式版本，当前自动构建策略不是每周打包，而是有 Tailscale 新版本后才会在下周一打包，所以使用 `@latest` 获取正式稳定版本。
 
@@ -44,7 +44,8 @@ Ps. `@main` 不是正式版本，当前自动构建策略不是每周打包，�
 
 ### 1. 本地安装 Tailscale
 
-通过控制台获取带密钥的 [安装脚本](https://login.tailscale.com/admin/machines/new-linux)
+通过控制台获取带密钥的 [安装脚本](https://login.tailscale.com/admin/machines/new-linux)，后在本机运行，安装并登陆 Tailscale，确保本机能正常使用 Tailscale 网络。  
+若不想在本机安装 Tailscale，请激活 `.env` 中的 `TAILSCALE_AUTH_KEY` 变量，并配置对应密钥，并注释/删除 `docker-compose.yml` 中的 `/var/run/tailscale/tailscaled.sock:/var/run/tailscale/tailscaled.sock` 变量。
 
 <details>
 <summary>
