@@ -365,14 +365,99 @@ tailscale up --reset
 
 ## 8. 扩展阅读
 
-### 8.1 阿里云内网
+### 8.1 阿里云内网相关
 
 [Tailscale 和 阿里云 DNS 水土不服的解法](https://linux.do/t/topic/769727)
 
-最简单方法，具体请看帖子
+最简单方法，但有安全风险：[CVE-2019-14899](https://seclists.org/oss-sec/2019/q4/122)
 
 ```bash
 tailscale set --accept-dns=false --netfilter-mode=off
+```
+
+### 8.1.2 放行阿里云内网 DNS
+
+#### 8.1.2.1 创建 systemd 服务文件
+
+```bash
+# 创建 systemd 服务文件
+sudo nano /etc/systemd/system/tailscale-custom-rule.service
+```
+
+#### 8.1.2.2 将下列内容粘贴到新建的 systemd 服务文件中
+
+```bash
+# /etc/systemd/system/tailscale-custom-rule.service
+[Unit]
+Description=Add Rule for Alibaba DNS With Tailscale
+# 在 tailscaled 服务成功启动后才运行
+After=tailscaled.service
+# 绑定到 tailscaled 服务。如果 tailscaled 启动，此服务也尝试启动
+Wants=tailscaled.service
+# 如果 tailscaled 停止或重启，此服务也随之停止
+PartOf=tailscaled.service
+
+[Service]
+# 一次性操作，非持续运行的进程
+Type=oneshot
+
+# 待 ts-input 链出现后，将规则插入到 ts-input 链的顶部
+# 注意：部分系统 iptables 路径可能是 /usr/sbin/iptables，请按需修改
+ExecStart=/bin/bash -c "while ! /sbin/iptables -L ts-input >/dev/null 2>&1; do sleep 1; done; /sbin/iptables -C ts-input -s 100.100.2.0/24 -j ACCEPT || /sbin/iptables -I ts-input -s 100.100.2.0/24 -j ACCEPT"
+
+[Install]
+WantedBy=multi-user.target
+```
+
+#### 8.1.2.3 配置开机自启
+
+创建完文件后，执行以下命令
+
+```bash
+# 重新加载 systemd 配置
+sudo systemctl daemon-reload
+
+# 设置开机自启
+sudo systemctl enable tailscale-custom-rule.service
+
+# 立即启动服务
+sudo systemctl start tailscale-custom-rule.service
+```
+
+#### 8.1.2.4 关闭 Tailscale DNS 接管
+
+避免 Tailscale 把 DNS 指向 MagicDNS（100.100.100.100）
+
+```bash
+tailscale set --accept-dns=false
+```
+
+#### 8.1.2.5 验证配置
+
+验证是否成功写入 ts-input
+
+```bash
+sudo iptables -L ts-input -n --line-numbers
+
+# 输出示例
+num  target     prot opt source               destination
+1    ACCEPT     all  --  100.100.2.0/24       0.0.0.0/0
+```
+
+测试 DNS 解析
+
+```bash
+nslookup baidu.com
+```
+
+验证持久化
+
+```bash
+# 重启服务器
+sudo reboot
+
+# 再次验证是否成功写入 ts-input
+sudo iptables -L ts-input -n
 ```
 
 ### 8.2 强制走 Derp 中转
