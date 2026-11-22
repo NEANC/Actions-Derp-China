@@ -11,7 +11,7 @@ RUN go mod init builder && \
 
 # 使用 CGO_ENABLED=0 来构建一个完全静态链接的二进制文件
 # 这个文件不依赖任何外部库，可以在任何 Linux 内核上运行，包括 Alpine
-RUN CGO_ENABLED=0 go build -o /derper tailscale.com/cmd/derper
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /derper tailscale.com/cmd/derper
 
 
 # ---- STAGE 2: The Final Image ----
