@@ -137,19 +137,43 @@ jobs:
           # 覆盖入口并短暂保持容器运行，以便执行版本查询命令。
           docker run -d --rm --name "$CONTAINER_NAME" --entrypoint sh derpinchina:latest -c 'sleep 300' >/dev/null
           # 提取 Tailscale 输出首行并去除可选 v 前缀，校验格式及版本一致性。
-          TS_OUTPUT=$(docker exec "$CONTAINER_NAME" tailscale --version)
+          if ! TS_OUTPUT=$(docker exec "$CONTAINER_NAME" tailscale --version 2>&1); then
+            echo 'TS_VERSION=获取失败' >> "$GITHUB_ENV"
+            printf '::error::Tailscale 版本查询失败：预期 %s；实际 %s\n' "$TAILSCALE_VERSION" "${TS_OUTPUT:-<空>}" >&2
+            exit 1
+          fi
+          printf '%s\n' "$TS_OUTPUT"
           TS_VERSION=${TS_OUTPUT%%$'\n'*}
           TS_VERSION=${TS_VERSION#v}
-          [[ "$TS_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          if [[ ! "$TS_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo 'TS_VERSION=获取失败' >> "$GITHUB_ENV"
+            printf '::error::Tailscale 版本格式错误：预期 %s（x.y.z）；实际 %s\n' "$TAILSCALE_VERSION" "${TS_OUTPUT:-<空>}" >&2
+            exit 1
+          fi
           echo "TS_VERSION=$TS_VERSION" >> "$GITHUB_ENV"
-          [[ "$TS_VERSION" == "$TAILSCALE_VERSION" ]]
+          if [[ "$TS_VERSION" != "$TAILSCALE_VERSION" ]]; then
+            printf '::error::Tailscale 版本不一致：预期 %s；实际 %s\n' "$TAILSCALE_VERSION" "$TS_VERSION" >&2
+            exit 1
+          fi
           # 对 Derper 执行相同校验，并保存实际版本用于构建摘要。
-          DERP_OUTPUT=$(docker exec "$CONTAINER_NAME" derper --version)
-          DERP_VERSION=${DERP_OUTPUT%%$'\n'*}
-          DERP_VERSION=${DERP_VERSION#v}
-          [[ "$DERP_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          if ! DERP_OUTPUT=$(docker exec "$CONTAINER_NAME" derper --version 2>&1); then
+            printf '%s\n' "$DERP_OUTPUT"
+            echo 'DERP_VERSION=获取失败' >> "$GITHUB_ENV"
+            printf '::error::Derper 版本查询失败：预期 %s；实际 %s\n' "$TAILSCALE_VERSION" "${DERP_OUTPUT:-<空>}" >&2
+            exit 1
+          fi
+          printf '%s\n' "$DERP_OUTPUT"
+          if [[ ! "$DERP_OUTPUT" =~ ^v?([0-9]+\.[0-9]+\.[0-9]+)(-[a-zA-Z0-9.-]+)?$ ]]; then
+            echo 'DERP_VERSION=获取失败' >> "$GITHUB_ENV"
+            printf '::error::Derper 版本格式错误：预期 %s（可选 v 前缀及非空字母数字点横线后缀）；实际 %s\n' "$TAILSCALE_VERSION" "${DERP_OUTPUT:-<空>}" >&2
+            exit 1
+          fi
+          DERP_VERSION=${BASH_REMATCH[1]}
           echo "DERP_VERSION=$DERP_VERSION" >> "$GITHUB_ENV"
-          [[ "$DERP_VERSION" == "$TAILSCALE_VERSION" ]]
+          if [[ "$DERP_VERSION" != "$TAILSCALE_VERSION" ]]; then
+            printf '::error::Derper 版本不一致：预期 %s；实际 %s\n' "$TAILSCALE_VERSION" "$DERP_VERSION" >&2
+            exit 1
+          fi
 
       # 为镜像添加版本标签，仅非 PR 构建同时更新 latest 标签。
       - name: Tag Image
@@ -226,6 +250,16 @@ jobs:
           elif [[ "$VERSION_OUTCOME" == "cancelled" ]]; then
             PUSH_STATUS="取消（远端状态需核实）"
           fi
+          EXPECTED_VERSION=${TAILSCALE_VERSION:-未执行}
+          if [[ -z "${TAILSCALE_VERSION:-}" ]] && jq -e '.version.outcome == "failure"' <<< "$STEPS_JSON" >/dev/null; then
+            EXPECTED_VERSION="获取失败"
+          fi
+          TS_MEASURED=${TS_VERSION:-未执行}
+          DERP_MEASURED=${DERP_VERSION:-未执行}
+          if [[ "${IMAGE_EXISTS:-}" == "true" ]]; then
+            TS_MEASURED="未检测（镜像已存在，已终止构建）"
+            DERP_MEASURED="$TS_MEASURED"
+          fi
           # 将状态、版本、镜像地址及运行链接追加到工作流摘要。
           {
             printf '## Docker镜像构建结果\n\n- %s **构建状态**: %s\n' "$STATUS_ICON" "$STATUS"
@@ -233,13 +267,14 @@ jobs:
               printf -- '- ⚠️ **终止原因**: 镜像已存在\n'
             fi
             printf -- '- **推送状态**: %s\n' "$PUSH_STATUS"
-            printf '\n### 版本与镜像\n- 预期 Tailscale: %s\n- 镜像 Tailscale: %s\n- Derper: %s\n' "${TAILSCALE_VERSION:-不可用}" "${TS_VERSION:-不可用}" "${DERP_VERSION:-不可用}"
-            printf -- '- 镜像: ghcr.io/%s/%s:%s\n' "${REPO_OWNER_LOWER:-不可用}" "$IMAGE_NAME" "${FINAL_TAG:-不可用}"
-            printf -- '- latest 镜像: ghcr.io/%s/%s:latest' "${REPO_OWNER_LOWER:-不可用}" "$IMAGE_NAME"
+            printf '\n### 组件版本\n\n| 组件 | 预期版本 | 实测版本 |\n| --- | --- | --- |\n'
+            printf '| Tailscale | %s | %s |\n| Derper | %s | %s |\n' "$EXPECTED_VERSION" "$TS_MEASURED" "$EXPECTED_VERSION" "$DERP_MEASURED"
+            printf '\n### 镜像信息\n\n#### 版本标签\n\n```text\nghcr.io/%s/%s:%s\n```\n' "${REPO_OWNER_LOWER:-不可用}" "$IMAGE_NAME" "${FINAL_TAG:-不可用}"
+            printf '\n#### latest 标签'
             if [[ "$EVENT_NAME" == "pull_request" ]]; then
               printf '（PR 不更新 latest）'
             fi
-            printf '\n'
+            printf '\n\n```text\nghcr.io/%s/%s:latest\n```\n\n' "${REPO_OWNER_LOWER:-不可用}" "$IMAGE_NAME"
             printf -- '- 提交: %s\n- UTC 时间: %s\n' "$COMMIT_SHA" "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
             printf '\n### 构建详情\n- 构建 ID: %s\n- 触发方式: %s\n- 分支: %s\n- 工作流运行: %s/%s/actions/runs/%s\n' "$RUN_ID" "$EVENT_NAME" "$REF_NAME" "$SERVER_URL" "$REPOSITORY" "$RUN_ID"
           } >> "$GITHUB_STEP_SUMMARY"
