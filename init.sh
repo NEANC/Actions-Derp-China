@@ -2,7 +2,7 @@
 
 # 1. 在后台启动 tailscaled 守护进程
 echo "Starting tailscaled..."
-/usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/var/run/tailscale/tailscaled.sock &> /var/lib/tailscale/tailscaled_initial.log &
+/usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/var/run/tailscale/tailscaled.sock > /var/lib/tailscale/tailscaled_initial.log 2>&1 &
 
 # 2. 等待 tailscaled 的 socket 文件创建成功
 echo "Waiting for tailscaled socket..."
@@ -17,7 +17,7 @@ echo "Bringing tailscale up..."
     --accept-routes=true \
     --accept-dns=true \
     --auth-key "${TAILSCALE_AUTH_KEY}" \
-    &> /var/lib/tailscale/tailscale_onboard.log
+    > /var/lib/tailscale/tailscale_onboard.log 2>&1
 
 # 检查 'tailscale up' 是否成功
 if [ $? -ne 0 ]; then
