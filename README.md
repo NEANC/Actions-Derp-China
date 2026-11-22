@@ -275,12 +275,12 @@ location ^~ / {
 		"OmitDefaultRegions": false, // false 可以设置为 true，这样不会下发官方的 derper 节点，测试时可以考虑打开，不推荐完全关闭
 		"Regions": {
 			"910": {
-				"RegionID": 910,         // tailscale 900-999 是保留给自定义 derper 的，与上方类标识符必须一致
-				"RegionCode": "阿里云",  // 在 tailscale netcheck 显示的缩写，支持中文
-				"RegionName": "ALderp", // 在 tailscale netcheck 显示的全名，支持中文
+				"RegionID": 910,             // tailscale 900-999 是保留给自定义 derper 的，与上方类标识符必须一致
+				"RegionCode": "阿里云",      // 在 tailscale netcheck 显示的缩写，支持中文
+				"RegionName": "AliYunderp", // 在 tailscale netcheck 显示的全名，支持中文
 				"Nodes": [
 					{
-						"Name": "ALderp",                    // 节点名称，不建议使用中文，没找到对应显示
+						"Name": "AliYunderp",                // 节点名称，不建议使用中文，没找到对应显示
 						"RegionID": 910,                    // 必须和上面的 RegionID 一致
 						"HostName": "derp.example.com",    // 替换为你的域名
 						"DERPPort": 443,                  // DERP 服务端口；使用反代到443可无视
