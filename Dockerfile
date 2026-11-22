@@ -20,12 +20,10 @@ FROM debian:bookworm-slim
 
 # 安装运行时依赖
 # ca-certificates 对于 derper 进行 TLS 通信至关重要
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    iptables ca-certificates curl \
-    && rm -rf /var/lib/apt/lists/*
-
 # 安装最新版本的 Tailscale
-RUN curl -fsSL https://pkgs.tailscale.com/stable/debian/bookworm.noarmor.gpg -o /usr/share/keyrings/tailscale-archive-keyring.gpg && \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    iptables ca-certificates curl && \
+    curl -fsSL https://pkgs.tailscale.com/stable/debian/bookworm.noarmor.gpg -o /usr/share/keyrings/tailscale-archive-keyring.gpg && \
     curl -fsSL https://pkgs.tailscale.com/stable/debian/bookworm.tailscale-keyring.list -o /etc/apt/sources.list.d/tailscale.list && \
     apt-get update && apt-get install -y --no-install-recommends tailscale \
     && apt-get purge -y curl \
