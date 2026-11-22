@@ -45,11 +45,17 @@ jobs:
           echo "REPO_OWNER_LOWER=${REPO_OWNER_LOWER}" >> $GITHUB_ENV
 
       - name: Get latest Tailscale Version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # 获取最新版本（从 GitHub API 获取最新 release 的 tag_name）
-          TAILSCALE_VERSION=$(curl -s https://api.github.com/repos/tailscale/tailscale/releases/latest | jq -r '.tag_name' | sed 's/^v//')
+          set -euo pipefail
+          RELEASE_JSON=$(curl --fail-with-body --silent --show-error \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/tailscale/tailscale/releases/latest)
+          TAILSCALE_VERSION=$(printf '%s' "$RELEASE_JSON" | jq -er '.tag_name | strings | select(test("^v[0-9]+[.][0-9]+[.][0-9]+$")) | ltrimstr("v")')
           echo "Latest Tailscale Version: $TAILSCALE_VERSION"
-          echo TAILSCALE_VERSION=$TAILSCALE_VERSION >> $GITHUB_ENV
+          echo "TAILSCALE_VERSION=$TAILSCALE_VERSION" >> "$GITHUB_ENV"
       
       - name: Check if the Image Exists
         run: |
