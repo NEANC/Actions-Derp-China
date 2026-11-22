@@ -94,6 +94,11 @@ jobs:
           echo "Image tag exists: $IMAGE_EXISTS"
           echo "IMAGE_EXISTS=$IMAGE_EXISTS" >> "$GITHUB_ENV"
 
+      # 镜像已存在时以失败状态终止，避免工作流显示成功。
+      - name: Stop if image exists
+        if: env.IMAGE_EXISTS == 'true'
+        run: exit 1
+
       # 仅在远端标签不存在时克隆目标仓库，作为镜像构建源代码。
       - name: Clone Derp-China-new repository
         id: clone
@@ -170,16 +175,21 @@ jobs:
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
-          # 按取消、失败、镜像已存在、版本推送成功的优先级确定构建状态。
+          # 按镜像已存在、取消、失败、版本推送成功的优先级确定构建状态。
           STATUS="跳过"
-          if jq -e 'any(.[]; .outcome == "cancelled")' <<< "$STEPS_JSON" >/dev/null; then
+          STATUS_ICON="⏭️"
+          if [[ "${IMAGE_EXISTS:-}" == "true" ]]; then
+            STATUS="已终止"
+            STATUS_ICON="❌"
+          elif jq -e 'any(.[]; .outcome == "cancelled")' <<< "$STEPS_JSON" >/dev/null; then
             STATUS="取消"
+            STATUS_ICON="⚠️"
           elif jq -e 'any(.[]; .outcome == "failure")' <<< "$STEPS_JSON" >/dev/null; then
             STATUS="失败"
-          elif [[ "${IMAGE_EXISTS:-}" == "true" ]]; then
-            STATUS="跳过（镜像已存在）"
+            STATUS_ICON="❌"
           elif jq -e '.push_version.outcome == "success"' <<< "$STEPS_JSON" >/dev/null; then
             STATUS="成功"
+            STATUS_ICON="✅"
           fi
           # 分别读取版本和 latest 推送结果，识别部分成功及取消等情况。
           PUSH_STATUS="跳过"
@@ -197,11 +207,13 @@ jobs:
           elif [[ "$VERSION_OUTCOME" == "cancelled" ]]; then
             PUSH_STATUS="取消（远端状态需核实）"
           fi
-          # 将状态、逐步结果、版本、镜像地址及运行链接追加到工作流摘要。
+          # 将状态、版本、镜像地址及运行链接追加到工作流摘要。
           {
-            printf '## Docker镜像构建结果\n\n- **构建状态**: %s\n- **推送状态**: %s\n' "$STATUS" "$PUSH_STATUS"
-            printf '\n### 步骤结果\n\n| 步骤 | 结果 |\n| --- | --- |\n'
-            jq -r 'to_entries[] | "| \(.key) | \(.value.outcome) |"' <<< "$STEPS_JSON"
+            printf '## Docker镜像构建结果\n\n- %s **构建状态**: %s\n' "$STATUS_ICON" "$STATUS"
+            if [[ "${IMAGE_EXISTS:-}" == "true" ]]; then
+              printf -- '- ⚠️ **终止原因**: 镜像已存在\n'
+            fi
+            printf -- '- **推送状态**: %s\n' "$PUSH_STATUS"
             printf '\n### 版本与镜像\n- 预期 Tailscale: %s\n- 镜像 Tailscale: %s\n' "${TAILSCALE_VERSION:-不可用}" "${TS_VERSION:-不可用}"
             printf -- '- 镜像: ghcr.io/%s/%s:%s\n' "${REPO_OWNER_LOWER:-不可用}" "$IMAGE_NAME" "${FINAL_TAG:-不可用}"
             printf -- '- latest 镜像: ghcr.io/%s/%s:latest\n' "${REPO_OWNER_LOWER:-不可用}" "$IMAGE_NAME"
