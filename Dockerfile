@@ -37,7 +37,7 @@ COPY init.sh /init.sh
 RUN chmod +x /init.sh
 
 # 暴露端口
-EXPOSE 444/tcp
+EXPOSE 404/tcp
 EXPOSE 3478/udp
 
 # 设置入口点
