@@ -22,4 +22,5 @@ services:
 
 networks:
   derper-proxy:
-    external: true
+    name: derper-proxy
+    driver: bridge

@@ -9,16 +9,7 @@
 
 ## 前言
 
-实验性项目，用来玩 Actions 的，虽然最后是玩 AI（笑
-
-暂时不建议用 `derpin-china`，打包出来的镜像大了一倍，对小水管来说要命。  
-当然你要用我也没法拦你，毕竟这个镜像目测来看不需要折腾一堆太多，填个 KEY，做个反代，拉起容器，最后在后台填下配置完事了。
-
-比较适合不在服务器上用 Tailscale，只是打算做 derp 且需要用域名的需求。
-
-不过结合 [如何强制 Tailscale 走 Derp 中转](https://linux.do/t/topic/752216) ，倒是可以试试（笑），等个有缘人反馈效果如何。
-
-建议使用 Peer Relay 作为中继方案，详见 [Tailscale Peer Relay 让内网穿透更加稳定！](https://linux.do/t/topic/1330145)，Derp 作为保底。
+建议使用 Peer Relay 作为中继方案，详见 [Tailscale Peer Relay 让内网穿透更加稳定！](https://linux.do/t/topic/1330145)，Derp 作为保底方案；若遇到 UDP QOS 导致的丢包与质量问题，请阅读 [如何强制 Tailscale 走 Derp 中转](https://linux.do/t/topic/752216)。
 
 ---
 
@@ -31,10 +22,10 @@
 将 `@main` 替换为 `@latest` ，以获取对应 Tailscale 的 derper 版本。  
 使用环境变量配置版本号，方便构建时指定版本：`docker build --build-arg DERP_VERSION=vx.x.x`
 
-| 镜像名                        | 基于   | 大小     | 说明                                                                               |
-| ----------------------------- | ------ | -------- | ---------------------------------------------------------------------------------- |
-| `lansepeach/derpin-china-new` | Alpine | ≈ 70 MB  | 基于[lansepeach/Derp-China-new](https://github.com/lansepeach/Derp-China-new) 构建 |
-| `derpin-china`                | Debian | ≈ 175 MB | 本库构建，用于实时追踪最新版本的 Tailscale                                         |
+| 镜像名                        | 基于   | 传输大小 | 实际大小 | 说明                                                                               |
+| ----------------------------- | ------ | -------- | -------- | ---------------------------------------------------------------------------------- |
+| `lansepeach/derpin-china-new` | Alpine | ≈ 35 MB  | ≈ 120 MB | 基于[lansepeach/Derp-China-new](https://github.com/lansepeach/Derp-China-new) 构建 |
+| `derpin-china`                | Debian | ≈ 85 MB  | ≈ 300 MB | 本库构建，用于实时追踪最新版本的 Tailscale                                         |
 
 Ps. `@main` 不是正式版本，当前自动构建策略不是每周打包，而是有 Tailscale 新版本后才会在下周一打包，所以使用 `@latest` 获取正式稳定版本。
 
@@ -105,8 +96,6 @@ cd Actions-Derp-China
 
 nano .env  #根据注释修改配置
 nano docker-compose.yaml  # 根据注释修改配置
-
-docker network create derper-proxy
 
 docker compose up -d
 ```
