@@ -1,12 +1,12 @@
 name: 自动构建:Derpin-China
 
-# 支持上海时区每周一零点定时执行、main 分支 PR 关闭事件及手动触发。
+# 支持上海时区每周一零点定时执行、main 分支 PR 创建、重新打开、更新及手动触发。
 on:
   schedule:
     - cron: '0 0 * * 1'
       timezone: Asia/Shanghai
   pull_request:
-    types: [ closed ]
+    types: [ opened, reopened, synchronize ]
     branches: [ main ]
   workflow_dispatch:
 
@@ -17,8 +17,6 @@ permissions:
 
 jobs:
   build-and-push:
-    # PR 关闭事件仅在已合并时执行，其他触发方式正常执行。
-    if: github.event_name != 'pull_request' || github.event.pull_request.merged == true
     runs-on: ubuntu-24.04
     defaults:
       run:
@@ -26,16 +24,21 @@ jobs:
     env:
       IMAGE_NAME: derpin-china
       EVENT_NAME: ${{ github.event_name }}
+      CAN_PUBLISH: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && github.actor != 'dependabot[bot]' }}
 
     steps:
       # 检出当前仓库，为 Docker 构建提供源代码和构建上下文。
       - name: Checkout repository
         id: checkout
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
 
       # 使用当前执行者和工作流令牌登录 GHCR，后续由独立步骤退出登录。
       - name: Login to GHCR
         id: login
+        if: env.CAN_PUBLISH == 'true'
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -72,18 +75,20 @@ jobs:
           echo "Latest Tailscale Version: $TAILSCALE_VERSION"
           echo "TAILSCALE_VERSION=$TAILSCALE_VERSION" >> "$GITHUB_ENV"
 
-      # 生成版本镜像标签，PR 合并构建额外附加 PR 编号。
+      # 生成版本镜像标签，PR 构建额外附加 PR 编号和提交短 SHA。
       - name: Generate Tag
         id: tag
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
           FINAL_TAG="v$TAILSCALE_VERSION"
-          # 校验 PR 编号为纯数字后追加后缀，区分 PR 构建和常规版本。
+          # 校验 PR 编号为纯数字、提交 SHA 为十六进制后追加后缀，区分 PR 构建和常规版本。
           if [[ "$EVENT_NAME" == "pull_request" ]]; then
             [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]
-            FINAL_TAG="$FINAL_TAG-pr$PR_NUMBER"
+            [[ "$PR_HEAD_SHA" =~ ^[0-9a-fA-F]{40}$ ]]
+            FINAL_TAG="$FINAL_TAG-pr$PR_NUMBER-${PR_HEAD_SHA:0:7}"
           fi
           echo "Generated tag: $FINAL_TAG"
           echo "FINAL_TAG=$FINAL_TAG" >> "$GITHUB_ENV"
@@ -96,6 +101,10 @@ jobs:
           GH_ACTOR: ${{ github.actor }}
         run: |
           set -euo pipefail
+          if [[ "$CAN_PUBLISH" != "true" ]]; then
+            echo 'IMAGE_EXISTS=false' >> "$GITHUB_ENV"
+            exit 0
+          fi
           IMAGE_URL="ghcr.io/$REPO_OWNER_LOWER/$IMAGE_NAME:$FINAL_TAG"
           # 认证查询镜像，仅将明确的清单或名称不存在视为需要构建。
           if INSPECT_ERROR=$(skopeo inspect --creds "$GH_ACTOR:$GH_TOKEN" "docker://$IMAGE_URL" 2>&1 >/dev/null); then
@@ -178,7 +187,7 @@ jobs:
       # 为镜像添加版本标签，仅非 PR 构建同时更新 latest 标签。
       - name: Tag Image
         id: tag_image
-        if: env.IMAGE_EXISTS == 'false'
+        if: env.CAN_PUBLISH == 'true' && env.IMAGE_EXISTS == 'false'
         run: |
           set -euo pipefail
           IMAGE_URL="ghcr.io/$REPO_OWNER_LOWER/$IMAGE_NAME"
@@ -191,19 +200,19 @@ jobs:
       # 仅在新构建完成且版本验证通过后推送版本标签镜像。
       - name: Push Image
         id: push_version
-        if: env.IMAGE_EXISTS == 'false'
+        if: env.CAN_PUBLISH == 'true' && env.IMAGE_EXISTS == 'false'
         run: docker push "ghcr.io/$REPO_OWNER_LOWER/$IMAGE_NAME:$FINAL_TAG"
 
       # 仅非 PR 的新构建推送 latest 标签镜像。
       - name: Push latest Image
         id: push_latest
-        if: env.IMAGE_EXISTS == 'false' && github.event_name != 'pull_request'
+        if: env.CAN_PUBLISH == 'true' && env.IMAGE_EXISTS == 'false' && github.event_name != 'pull_request'
         run: docker push "ghcr.io/$REPO_OWNER_LOWER/$IMAGE_NAME:latest"
 
       # 无论前面步骤成功、失败或取消，均尝试退出 GHCR 登录并清理凭据。
       - name: Logout from GHCR
         id: logout
-        if: always()
+        if: always() && env.CAN_PUBLISH == 'true' && steps.login.outcome == 'success'
         run: docker logout ghcr.io
 
       # 始终生成构建摘要，汇总步骤结果、推送状态、版本及运行详情。
@@ -213,7 +222,7 @@ jobs:
           STEPS_JSON: ${{ toJSON(steps) }}
           RUN_ID: ${{ github.run_id }}
           REF_NAME: ${{ github.ref_name }}
-          COMMIT_SHA: ${{ github.sha }}
+          COMMIT_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
           SERVER_URL: ${{ github.server_url }}
           REPOSITORY: ${{ github.repository }}
         run: |
@@ -233,12 +242,17 @@ jobs:
           elif jq -e '.push_version.outcome == "success"' <<< "$STEPS_JSON" >/dev/null; then
             STATUS="成功"
             STATUS_ICON="✅"
+          elif [[ "$CAN_PUBLISH" != "true" ]] && jq -e '.build.outcome == "success" and .verify_versions.outcome == "success"' <<< "$STEPS_JSON" >/dev/null; then
+            STATUS="成功"
+            STATUS_ICON="✅"
           fi
           # 分别读取版本和 latest 推送结果，识别部分成功及取消等情况。
           PUSH_STATUS="跳过"
           VERSION_OUTCOME=$(jq -r '.push_version.outcome // "skipped"' <<< "$STEPS_JSON")
           LATEST_OUTCOME=$(jq -r '.push_latest.outcome // "skipped"' <<< "$STEPS_JSON")
-          if [[ "$VERSION_OUTCOME" == "success" ]]; then
+          if [[ "$CAN_PUBLISH" != "true" ]]; then
+            PUSH_STATUS="未推送（仅验证不发布）"
+          elif [[ "$VERSION_OUTCOME" == "success" ]]; then
             # PR 无需推送 latest，其他触发方式须两个标签均推送成功。
             if [[ "$EVENT_NAME" == "pull_request" || "$LATEST_OUTCOME" == "success" ]]; then
               PUSH_STATUS="成功"
