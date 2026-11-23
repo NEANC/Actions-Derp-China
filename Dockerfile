@@ -19,10 +19,10 @@ FROM debian:bookworm-slim
 
 # 安装运行时依赖
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    iptables ca-certificates curl && \
-    curl -fsSL https://pkgs.tailscale.com/stable/debian/bookworm.noarmor.gpg -o /usr/share/keyrings/tailscale-archive-keyring.gpg && \
-    curl -fsSL https://pkgs.tailscale.com/stable/debian/bookworm.tailscale-keyring.list -o /etc/apt/sources.list.d/tailscale.list && \
-    apt-get update && apt-get install -y --no-install-recommends tailscale \
+    iptables ca-certificates curl \
+    && curl -fsSL https://pkgs.tailscale.com/stable/debian/bookworm.noarmor.gpg -o /usr/share/keyrings/tailscale-archive-keyring.gpg \
+    && curl -fsSL https://pkgs.tailscale.com/stable/debian/bookworm.tailscale-keyring.list -o /etc/apt/sources.list.d/tailscale.list \
+    && apt-get update && apt-get install -y --no-install-recommends tailscale \
     && apt-mark manual iptables ca-certificates tailscale \
     && apt-get purge -y --auto-remove curl \
     && apt-get clean \
