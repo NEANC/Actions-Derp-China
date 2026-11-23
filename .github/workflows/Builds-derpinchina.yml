@@ -284,11 +284,10 @@ jobs:
             printf '\n### 组件版本\n\n| 组件 | 预期版本 | 实测版本 |\n| --- | --- | --- |\n'
             printf '| Tailscale | %s | %s |\n| Derper | %s | %s |\n' "$EXPECTED_VERSION" "$TS_MEASURED" "$EXPECTED_VERSION" "$DERP_MEASURED"
             printf '\n### 镜像信息\n\n#### 版本标签\n\n```text\nghcr.io/%s/%s:%s\n```\n' "${REPO_OWNER_LOWER:-不可用}" "$IMAGE_NAME" "${FINAL_TAG:-不可用}"
-            printf '\n#### latest 标签'
-            if [[ "$EVENT_NAME" == "pull_request" ]]; then
-              printf '（PR 不更新 latest）'
+            # 仅在本次成功推送 latest 后展示地址，避免将未发布的标签列为构建产物。
+            if [[ "$LATEST_OUTCOME" == "success" ]]; then
+              printf '\n#### latest 标签\n\n```text\nghcr.io/%s/%s:latest\n```' "${REPO_OWNER_LOWER:-不可用}" "$IMAGE_NAME"
             fi
-            printf '\n\n```text\nghcr.io/%s/%s:latest\n```\n\n' "${REPO_OWNER_LOWER:-不可用}" "$IMAGE_NAME"
-            printf -- '- 提交: %s\n- UTC 时间: %s\n' "$COMMIT_SHA" "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            printf '\n\n- 提交: %s\n- UTC 时间: %s\n' "$COMMIT_SHA" "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
             printf '\n### 构建详情\n- 构建 ID: %s\n- 触发方式: %s\n- 分支: %s\n- 工作流运行: %s/%s/actions/runs/%s\n' "$RUN_ID" "$EVENT_NAME" "$REF_NAME" "$SERVER_URL" "$REPOSITORY" "$RUN_ID"
           } >> "$GITHUB_STEP_SUMMARY"
