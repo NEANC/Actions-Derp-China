@@ -16,17 +16,16 @@ RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /derper tailscale.com/c
 
 # ---- STAGE 2: The Final Image ----
 FROM debian:bookworm-slim
-# 替换为 slim 镜像，用于追踪最新的 Tailscale 版本
 
 # 安装运行时依赖
-# ca-certificates 对于 derper 进行 TLS 通信至关重要
-# 安装最新版本的 Tailscale
 RUN apt-get update && apt-get install -y --no-install-recommends \
     iptables ca-certificates curl && \
     curl -fsSL https://pkgs.tailscale.com/stable/debian/bookworm.noarmor.gpg -o /usr/share/keyrings/tailscale-archive-keyring.gpg && \
     curl -fsSL https://pkgs.tailscale.com/stable/debian/bookworm.tailscale-keyring.list -o /etc/apt/sources.list.d/tailscale.list && \
     apt-get update && apt-get install -y --no-install-recommends tailscale \
-    && apt-get purge -y curl \
+    && apt-mark manual iptables ca-certificates tailscale \
+    && apt-get purge -y --auto-remove curl \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # 从 builder 阶段复制我们编译好的、可独立运行的静态二进制文件
