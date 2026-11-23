@@ -22,10 +22,10 @@
 将 `@main` 替换为 `@latest` ，以获取对应 Tailscale 的 derper 版本。  
 使用环境变量配置版本号，方便构建时指定版本：`docker build --build-arg DERP_VERSION=vx.x.x`
 
-| 镜像名                        | 基于   | 传输大小 | 实际大小 | 说明                                                                               |
-| ----------------------------- | ------ | -------- | -------- | ---------------------------------------------------------------------------------- |
-| `lansepeach/derpin-china-new` | Alpine | ≈ 35 MB  | ≈ 120 MB | 基于[lansepeach/Derp-China-new](https://github.com/lansepeach/Derp-China-new) 构建 |
-| `derpin-china`                | Debian | ≈ 85 MB  | ≈ 300 MB | 本库构建，用于实时追踪最新版本的 Tailscale                                         |
+| 镜像名                        | 基于   | 镜像压缩后大小 | 解压后分层大小 | 说明                                                                               |
+| ----------------------------- | ------ | -------------- | ---------------- | ---------------------------------------------------------------------------------- |
+| `lansepeach/derpin-china-new` | Alpine | ≈ 35 MB        | ≈ 120 MB         | 基于[lansepeach/Derp-China-new](https://github.com/lansepeach/Derp-China-new) 构建 |
+| `derpin-china`                | Debian | ≈ 85 MB        | ≈ 300 MB         | 本库构建，用于实时追踪最新版本的 Tailscale                                         |
 
 Ps. `@main` 不是正式版本，当前自动构建策略不是每周打包，而是有 Tailscale 新版本后才会在下周一打包，所以使用 `@latest` 获取正式稳定版本。
 
